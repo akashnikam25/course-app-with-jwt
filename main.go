@@ -17,7 +17,7 @@ var (
 )
 
 func initDB() {
-	connectionString := "root:akash@tcp(127.0.0.1:3306)/course"
+	connectionString := "root:akash@tcp(127.0.0.1:3306)/courseapp"
 
 	// Open a connection to the database
 	db, err = sql.Open("mysql", connectionString)
@@ -40,6 +40,8 @@ func main() {
 	initDB()
 	router := mux.NewRouter()
 	router.HandleFunc("/admin/signup", adminSignup).Methods("POST")
+	router.HandleFunc("/admin/login", adminLogin).Methods("POST")
+	router.HandleFunc("/admin/course", createCourse).Methods("POST")
 	// Start the server
 
 	fmt.Printf("Server is listening on port %s...\n", ":8000")
