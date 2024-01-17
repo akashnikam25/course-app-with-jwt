@@ -16,7 +16,7 @@ type JwtClaim struct {
 var key = []byte("akash")
 
 func GenerateJwt(username string) (jwtToken string) {
-	expiryTime := time.Now().Add( 3 * time.Minute)
+	expiryTime := time.Now().Add( 1 * time.Hour)
 	jwtclaim := JwtClaim{
 		UserName: username,
 		StandardClaims: jwt.StandardClaims{

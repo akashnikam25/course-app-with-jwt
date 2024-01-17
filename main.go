@@ -35,13 +35,15 @@ func initDB() {
 }
 
 func main() {
-	fmt.Println("Hello world")
+
 	defer db.Close()
 	initDB()
 	router := mux.NewRouter()
-	router.HandleFunc("/admin/signup", adminSignup).Methods("POST")
-	router.HandleFunc("/admin/login", adminLogin).Methods("POST")
-	router.HandleFunc("/admin/course", createCourse).Methods("POST")
+	router.HandleFunc("/admin/signup", adminSignup).Methods(http.MethodPost)
+	router.HandleFunc("/admin/login", adminLogin).Methods(http.MethodPost)
+	router.HandleFunc("/admin/course", createCourse).Methods(http.MethodPost)
+	router.HandleFunc("/admin/courses/{courseId}", updateCourses).Methods(http.MethodPut)
+	router.HandleFunc("/admin/courses", getAllCourses).Methods(http.MethodGet)
 	// Start the server
 
 	fmt.Printf("Server is listening on port %s...\n", ":8000")
