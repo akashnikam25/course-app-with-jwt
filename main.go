@@ -50,6 +50,10 @@ func main() {
 	router.HandleFunc("/admin/course", createCourse).Methods(http.MethodPost)
 	router.HandleFunc("/admin/courses/{courseId}", updateCourses).Methods(http.MethodPut)
 	router.HandleFunc("/admin/courses", getAllCourses).Methods(http.MethodGet)
+	router.HandleFunc("/user/signup", userSignup).Methods(http.MethodPost)
+	router.HandleFunc("/user/login", userLogin).Methods(http.MethodPost)
+	router.HandleFunc("/user/courses", getAllCourses).Methods(http.MethodGet)
+	router.HandleFunc("/user/courses/{courseId}", createCourse).Methods(http.MethodPost)
 	// Start the server
 
 	fmt.Printf("Server is listening on port %s...\n", ":8000")

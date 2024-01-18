@@ -9,16 +9,16 @@ import (
 )
 
 type JwtClaim struct {
-	UserName string `json:"username"`
+	UserId int `json:"userid"`
 	jwt.StandardClaims
 }
 
 var key = []byte("akash")
 
-func GenerateJwt(username string) (jwtToken string) {
+func GenerateJwt(userId int) (jwtToken string) {
 	expiryTime := time.Now().Add( 1 * time.Hour)
 	jwtclaim := JwtClaim{
-		UserName: username,
+		UserId: userId,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expiryTime.Unix(),
 		},
@@ -57,7 +57,7 @@ func ValidateToken(jwtToken string) error {
 	if jwtvalidClaim.ExpiresAt < time.Now().Unix() {
 		return errors.New("token expired")
 	}
-    fmt.Println("UserName :",jwtvalidClaim.UserName)
+    fmt.Println("UserName :",jwtvalidClaim.UserId)
 	return nil
 
 }

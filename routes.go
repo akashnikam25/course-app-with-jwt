@@ -17,10 +17,17 @@ const (
 	updateCourse   = "UPDATE courses SET title = ?, description = ?, price = ?, imageLink = ?, published = ? WHERE id = ? "
 	getCourses     = "SELECT * from courses"
 	admin          = "admin"
+
+	//user
+	user           = "user"
+
+	//common
+	getUsrAdminId  = "Select id from users where username = ? And Password = ?"   
 )
 
 // credentials struct representing credentials data
 type credentials struct {
+	Id       int    `json:"id,omitempty"`
 	UserName string `json:"username"`
 	PassWord string `json:"password"`
 	Role     string `json:"role,omitempty"`
@@ -80,7 +87,9 @@ func adminSignup(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	token := auth.GenerateJwt(cred.UserName)
+	row,_ := db.Query(getUsrAdminId,cred.UserName,cred.PassWord)
+	row.Scan(&cred.Id)
+	token := auth.GenerateJwt(cred.Id)
 
 	res := response{
 		Message: "Admin created successfully",
@@ -141,7 +150,9 @@ func adminLogin(w http.ResponseWriter, r *http.Request) {
 	if cred.PassWord == dbCred.PassWord && dbCred.Role == "admin" {
 		fmt.Println("admin logged in")
 	}
-	token := auth.GenerateJwt(cred.UserName)
+	ro,_ := db.Query(getUsrAdminId,dbCred.UserName,dbCred.PassWord)
+	ro.Scan(&cred.Id)
+	token := auth.GenerateJwt(cred.Id)
 
 	res := response{
 		Message: "Logged in successfully",
@@ -324,3 +335,128 @@ func getAllCourses(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	w.Write(jsonRes)
 }
+
+// ******* User Routes ******
+
+
+// userSignup creates an account for an admin.
+func userSignup(w http.ResponseWriter, r *http.Request) {
+	pasrseBody := r.Body
+	bodyByte, err := io.ReadAll(pasrseBody)
+
+	if err != nil {
+		fmt.Println("", err)
+		log.Fatal(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	fmt.Println(string(bodyByte))
+
+	cred := credentials{}
+	err = json.Unmarshal([]byte(bodyByte), &cred)
+
+	if err != nil {
+		fmt.Println("Json Unmarshal :", err)
+		log.Fatal(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	result, err := db.Exec(insertQuery, cred.UserName, cred.PassWord, user)
+
+	if err != nil {
+		log.Fatal(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	lastInsertID, err := result.LastInsertId()
+	if err != nil {
+		log.Fatal(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	ro,_ := db.Query(getUsrAdminId,cred.UserName,cred.PassWord)
+	ro.Scan(&cred.Id)
+	token := auth.GenerateJwt(cred.Id)
+
+	res := response{
+		Message: "User created successfully",
+		Token:   token,
+	}
+	jsonRes, err := json.Marshal(res)
+
+	if err != nil {
+		log.Fatal(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
+	w.Header().Add("Content-Type", "application/json")
+
+	w.Write(jsonRes)
+	fmt.Printf("Inserted row with ID: %d\n", lastInsertID)
+}
+
+// userLogin handles the validation of login credentials.
+// On successful validation, it returns a token.
+// On failed validation, it returns a bad request.
+func userLogin(w http.ResponseWriter, r *http.Request) {
+	pasrseBody := r.Body
+	bodyByte, err := io.ReadAll(pasrseBody)
+
+	if err != nil {
+		fmt.Println("", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	fmt.Println(string(bodyByte))
+
+	cred := credentials{}
+	err = json.Unmarshal([]byte(bodyByte), &cred)
+
+	if err != nil {
+		fmt.Println("Json Unmarshal :", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	row := db.QueryRow(selectQuery, cred.UserName)
+
+	if err != nil {
+		log.Fatal(err)
+		w.WriteHeader(http.StatusBadRequest)
+	}
+
+	dbCred := credentials{}
+	err = row.Scan(&dbCred.UserName, &dbCred.PassWord, &dbCred.Role)
+	if err != nil {
+		log.Fatal(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if cred.PassWord == dbCred.PassWord && dbCred.Role == "User" {
+		fmt.Println("User logged in")
+	}
+	ro,_ := db.Query(getUsrAdminId,cred.UserName,cred.PassWord)
+	ro.Scan(&cred.Id)
+	token := auth.GenerateJwt(cred.Id)
+
+	res := response{
+		Message: "Logged in successfully",
+		Token:   token,
+	}
+	jsonRes, err := json.Marshal(res)
+
+	if err != nil {
+		log.Fatal(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Header().Add("Content-Type", "application/json")
+
+	w.Write(jsonRes)
+}
+
