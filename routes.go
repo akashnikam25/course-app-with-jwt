@@ -14,7 +14,7 @@ const (
 	selectQuery    = "SELECT username, password, role From users Where username = ?"
 	insertCourse   = "INSERT INTO courses (title, description, price, imageLink, published) VALUES (?, ?, ?, ?, ?)"
 	selectCourseId = "SELECT id from courses where title = ?"
-	updateCourse   = "UPDATE courses SET title = $2, description = $3, price = $4, imageLink = $5, published = $6 WHERE id = $1"
+	updateCourse   = "UPDATE courses SET title = ?, description = ?, price = ?, imageLink = ?, published = ? WHERE id = ? "
 	getCourses     = "SELECT * from courses"
 	admin          = "admin"
 )
@@ -259,8 +259,8 @@ func updateCourses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = db.Exec(updateCourse, courseId, newCourse.Title, newCourse.Description,
-		newCourse.Price, newCourse.Published, newCourse.ImageLink)
+	_, err = db.Exec(updateCourse, newCourse.Title, newCourse.Description,
+		newCourse.Price, newCourse.ImageLink, newCourse.Published, courseId)
 
 	if err != nil {
 		log.Fatal(err)
@@ -277,11 +277,12 @@ func updateCourses(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK)
 	w.Header().Add("Content-Type", "application/json")
 	w.Write(jsonRes)
 }
 
+// getAllCourses will return all the courses
 func getAllCourses(w http.ResponseWriter, r *http.Request) {
 	token := r.Header.Get("Authorization")
 
@@ -301,7 +302,7 @@ func getAllCourses(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var c course
 		err := rows.Scan(&c.Id, &c.Title, &c.Description,
-			&c.Price, &c.Published, &c.ImageLink)
+			&c.Price, &c.ImageLink, &c.Published)
 
 		courses = append(courses, c)
 		if err != nil {
@@ -313,14 +314,13 @@ func getAllCourses(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonRes, err := json.Marshal(courses)
-	
+
 	if err != nil {
 		log.Fatal(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	w.WriteHeader(http.StatusOK)
 	w.Header().Add("Content-Type", "application/json")
 	w.Write(jsonRes)
-
 }

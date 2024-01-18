@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
-	
 )
 
 var (
@@ -38,6 +40,10 @@ func main() {
 
 	defer db.Close()
 	initDB()
+	// Set up a channel to listen for interrupt signals
+	interruptChan := make(chan os.Signal, 1)
+	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
+
 	router := mux.NewRouter()
 	router.HandleFunc("/admin/signup", adminSignup).Methods(http.MethodPost)
 	router.HandleFunc("/admin/login", adminLogin).Methods(http.MethodPost)
@@ -47,6 +53,14 @@ func main() {
 	// Start the server
 
 	fmt.Printf("Server is listening on port %s...\n", ":8000")
-	http.ListenAndServe(":8000", router)
+	go http.ListenAndServe(":8000", router)
+
+	// Wait for an interrupt signal
+	<-interruptChan
+
+	// Handle cleanup and shutdown logic here...
+
+	fmt.Println("Server is shutting down.")
+	os.Exit(0)
 
 }
