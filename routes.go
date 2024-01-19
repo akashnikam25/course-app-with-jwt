@@ -460,3 +460,7 @@ func userLogin(w http.ResponseWriter, r *http.Request) {
 	w.Write(jsonRes)
 }
 
+func purchaseCourse(w http.ResponseWriter, r *http.Request){
+	
+}
+
