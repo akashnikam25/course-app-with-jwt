@@ -54,10 +54,11 @@ func main() {
 	router.HandleFunc("/user/login", userLogin).Methods(http.MethodPost)
 	router.HandleFunc("/user/courses", getAllCourses).Methods(http.MethodGet)
 	router.HandleFunc("/user/courses/{courseId}", purchaseCourse).Methods(http.MethodPost)
+	router.HandleFunc("/user/purchasedCourses",getAllPurchaseCourse).Methods(http.MethodGet)
 	// Start the server
 
 	fmt.Printf("Server is listening on port %s...\n", ":8000")
-	go http.ListenAndServe(":8000", router)
+	go startServer(router)
 
 	// Wait for an interrupt signal
 	<-interruptChan
@@ -67,4 +68,10 @@ func main() {
 	fmt.Println("Server is shutting down.")
 	os.Exit(0)
 
+}
+
+func startServer(router *mux.Router){
+	if err := http.ListenAndServe(":8000", router);err != nil{
+       fmt.Println("err :	",err)
+	}
 }

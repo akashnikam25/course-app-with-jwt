@@ -7,11 +7,14 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
+
+	"github.com/gorilla/mux"
 )
 
 const (
 	insertQuery    = "INSERT INTO users (username, password, role) VALUES (?, ?, ?)"
-	selectQuery    = "SELECT username, password, role From users Where username = ?"
+	selectQuery    = "SELECT id, role From users Where username = ? AND Password = ?"
 	insertCourse   = "INSERT INTO courses (title, description, price, imageLink, published) VALUES (?, ?, ?, ?, ?)"
 	selectCourseId = "SELECT id from courses where title = ?"
 	updateCourse   = "UPDATE courses SET title = ?, description = ?, price = ?, imageLink = ?, published = ? WHERE id = ? "
@@ -19,10 +22,12 @@ const (
 	admin          = "admin"
 
 	//user
-	user           = "user"
+	user          = "user"
+	prchsCour     = "INSERT INTO usersncourses(userid, courseid) VALUES(?, ?)"
+	getPrchscours = "SELECT * from courses where id  IN (select courseid from usersncourses where userId = ?)"
 
 	//common
-	getUsrAdminId  = "Select id from users where username = ? And Password = ?"   
+	getUsrAdminId = "Select id from users where username = ? And Password = ?"
 )
 
 // credentials struct representing credentials data
@@ -87,8 +92,15 @@ func adminSignup(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	row,_ := db.Query(getUsrAdminId,cred.UserName,cred.PassWord)
-	row.Scan(&cred.Id)
+	row, err := db.Query(getUsrAdminId, cred.UserName, cred.PassWord)
+	if err != nil {
+		fmt.Println("errr ===", err)
+		return
+	}
+	for row.Next() {
+		row.Scan(&cred.Id)
+	}
+
 	token := auth.GenerateJwt(cred.Id)
 
 	res := response{
@@ -133,7 +145,7 @@ func adminLogin(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	row := db.QueryRow(selectQuery, cred.UserName)
+	row := db.QueryRow(selectQuery, cred.UserName, cred.PassWord)
 
 	if err != nil {
 		log.Fatal(err)
@@ -141,18 +153,17 @@ func adminLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dbCred := credentials{}
-	err = row.Scan(&dbCred.UserName, &dbCred.PassWord, &dbCred.Role)
+	err = row.Scan(&dbCred.Id, &dbCred.Role)
 	if err != nil {
 		log.Fatal(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if cred.PassWord == dbCred.PassWord && dbCred.Role == "admin" {
+	if dbCred.Role == "admin" {
 		fmt.Println("admin logged in")
 	}
-	ro,_ := db.Query(getUsrAdminId,dbCred.UserName,dbCred.PassWord)
-	ro.Scan(&cred.Id)
-	token := auth.GenerateJwt(cred.Id)
+	fmt.Println("dbCred.Id :", dbCred.Id)
+	token := auth.GenerateJwt(dbCred.Id)
 
 	res := response{
 		Message: "Logged in successfully",
@@ -246,7 +257,8 @@ func updateCourses(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	courseId := r.URL.Query().Get("courseId")
+	vars := mux.Vars(r)
+	courseId := vars["courseId"]
 
 	pasrseBody := r.Body
 	bodyByte, err := io.ReadAll(pasrseBody)
@@ -338,7 +350,6 @@ func getAllCourses(w http.ResponseWriter, r *http.Request) {
 
 // ******* User Routes ******
 
-
 // userSignup creates an account for an admin.
 func userSignup(w http.ResponseWriter, r *http.Request) {
 	pasrseBody := r.Body
@@ -376,8 +387,11 @@ func userSignup(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	ro,_ := db.Query(getUsrAdminId,cred.UserName,cred.PassWord)
-	ro.Scan(&cred.Id)
+	ro, _ := db.Query(getUsrAdminId, cred.UserName, cred.PassWord)
+	for ro.Next() {
+		ro.Scan(&cred.Id)
+	}
+
 	token := auth.GenerateJwt(cred.Id)
 
 	res := response{
@@ -422,7 +436,7 @@ func userLogin(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	row := db.QueryRow(selectQuery, cred.UserName)
+	row := db.QueryRow(selectQuery, cred.UserName, cred.PassWord)
 
 	if err != nil {
 		log.Fatal(err)
@@ -430,18 +444,18 @@ func userLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dbCred := credentials{}
-	err = row.Scan(&dbCred.UserName, &dbCred.PassWord, &dbCred.Role)
+	err = row.Scan(&dbCred.Id, &dbCred.Role)
 	if err != nil {
 		log.Fatal(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	if cred.PassWord == dbCred.PassWord && dbCred.Role == "User" {
+	if dbCred.Role == "User" {
 		fmt.Println("User logged in")
 	}
-	ro,_ := db.Query(getUsrAdminId,cred.UserName,cred.PassWord)
-	ro.Scan(&cred.Id)
-	token := auth.GenerateJwt(cred.Id)
+
+	fmt.Println("dbCred.Id", dbCred.Id)
+	token := auth.GenerateJwt(dbCred.Id)
 
 	res := response{
 		Message: "Logged in successfully",
@@ -460,7 +474,87 @@ func userLogin(w http.ResponseWriter, r *http.Request) {
 	w.Write(jsonRes)
 }
 
-func purchaseCourse(w http.ResponseWriter, r *http.Request){
-	
+func purchaseCourse(w http.ResponseWriter, r *http.Request) {
+	token := r.Header.Get("Authorization")
+	err := auth.ValidateToken(token)
+	if err != nil {
+		fmt.Println("Invalid User")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	userId := auth.GetUserId()
+	fmt.Println(auth.GetUserId())
+
+	vars := mux.Vars(r)
+	courseId, err := strconv.Atoi(vars["courseId"])
+
+	if err != nil {
+		fmt.Println("err : ", err)
+	}
+	fmt.Println("courseId", courseId, "userId", userId)
+
+	_, err = db.Exec(prchsCour, userId, courseId)
+	if err != nil {
+		fmt.Println(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	res := response{
+		Message: "Course Purchased successfully",
+	}
+
+	jsonRes, err := json.Marshal(res)
+
+	if err != nil {
+		log.Fatal(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Header().Add("Content-Type", "application/json")
+
+	w.Write(jsonRes)
+
 }
 
+func getAllPurchaseCourse(w http.ResponseWriter, r *http.Request) {
+	token := r.Header.Get("Authorization")
+	err := auth.ValidateToken(token)
+	if err != nil {
+		fmt.Println("Invalid User")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	rows, err := db.Query(getPrchscours, auth.GetUserId())
+	if err != nil {
+		fmt.Println("Invalid User")
+		w.WriteHeader(http.StatusBadRequest)
+		return 
+	}
+	var courses []course
+	for rows.Next() {
+       var c course
+	   err := rows.Scan(&c.Id, &c.Title, &c.Description,
+		   &c.Price, &c.ImageLink, &c.Published)
+
+	   courses = append(courses, c)
+	   if err != nil {
+		   fmt.Println("Json Unmarshal :", err)
+		   log.Fatal(err)
+		   w.WriteHeader(http.StatusBadRequest)
+		   return
+	   }
+	}
+	res := map[string][]course{"purchasedCourses":courses}
+	jsonRes, err := json.Marshal(res)
+
+	if err != nil {
+		log.Fatal(err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Header().Add("Content-Type", "application/json")
+	w.Write(jsonRes)
+
+}

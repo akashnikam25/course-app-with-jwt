@@ -13,10 +13,14 @@ type JwtClaim struct {
 	jwt.StandardClaims
 }
 
-var key = []byte("akash")
+var (
+	key           = []byte("akash")
+	jwtvalidClaim *JwtClaim
+	jwtclim       JwtClaim
+)
 
 func GenerateJwt(userId int) (jwtToken string) {
-	expiryTime := time.Now().Add( 1 * time.Hour)
+	expiryTime := time.Now().Add(1 * time.Hour)
 	jwtclaim := JwtClaim{
 		UserId: userId,
 		StandardClaims: jwt.StandardClaims{
@@ -36,12 +40,11 @@ func GenerateJwt(userId int) (jwtToken string) {
 func ValidateToken(jwtToken string) error {
 
 	var (
-		jwtvalidClaim *JwtClaim
-		ok            bool
+		ok bool
 	)
 
-	jwtclaim := JwtClaim{}
-	token, err := jwt.ParseWithClaims(jwtToken, &jwtclaim, func(t *jwt.Token) (interface{}, error) {
+	jwtclim = JwtClaim{}
+	token, err := jwt.ParseWithClaims(jwtToken, &jwtclim, func(t *jwt.Token) (interface{}, error) {
 		return key, nil
 	})
 
@@ -57,7 +60,11 @@ func ValidateToken(jwtToken string) error {
 	if jwtvalidClaim.ExpiresAt < time.Now().Unix() {
 		return errors.New("token expired")
 	}
-    fmt.Println("UserName :",jwtvalidClaim.UserId)
+
 	return nil
 
+}
+
+func GetUserId() int {
+	return jwtclim.UserId
 }
