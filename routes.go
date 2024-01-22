@@ -102,12 +102,7 @@ func adminSignup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := auth.GenerateJwt(cred.Id)
-
-	res := response{
-		Message: "Admin created successfully",
-		Token:   token,
-	}
-	jsonRes, err := json.Marshal(res)
+	jsonRes, err := createResp("Admin created successfully", token, 0)
 
 	if err != nil {
 		log.Fatal(err)
@@ -165,11 +160,7 @@ func adminLogin(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("dbCred.Id :", dbCred.Id)
 	token := auth.GenerateJwt(dbCred.Id)
 
-	res := response{
-		Message: "Logged in successfully",
-		Token:   token,
-	}
-	jsonRes, err := json.Marshal(res)
+	jsonRes, err := createResp("Logged in successfully", token, 0)
 
 	if err != nil {
 		log.Fatal(err)
@@ -229,11 +220,8 @@ func createCourse(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	res := response{
-		Message:  "Course created successfully",
-		CourseId: crse.Id,
-	}
-	jsonRes, err := json.Marshal(res)
+
+	jsonRes, err := createResp("Course created successfully", "", crse.Id)
 
 	if err != nil {
 		log.Fatal(err)
@@ -290,10 +278,8 @@ func updateCourses(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	res := response{
-		Message: "Course updated successfully",
-	}
-	jsonRes, err := json.Marshal(res)
+
+	jsonRes, err := createResp("Course updated successfully", "", 0)
 
 	if err != nil {
 		log.Fatal(err)
@@ -394,12 +380,7 @@ func userSignup(w http.ResponseWriter, r *http.Request) {
 
 	token := auth.GenerateJwt(cred.Id)
 
-	res := response{
-		Message: "User created successfully",
-		Token:   token,
-	}
-	jsonRes, err := json.Marshal(res)
-
+	jsonRes, err := createResp("User created successfully", token, 0)
 	if err != nil {
 		log.Fatal(err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -457,12 +438,7 @@ func userLogin(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("dbCred.Id", dbCred.Id)
 	token := auth.GenerateJwt(dbCred.Id)
 
-	res := response{
-		Message: "Logged in successfully",
-		Token:   token,
-	}
-	jsonRes, err := json.Marshal(res)
-
+	jsonRes, err := createResp("Logged in successfully", token, 0)
 	if err != nil {
 		log.Fatal(err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -483,7 +459,6 @@ func purchaseCourse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userId := auth.GetUserId()
-	fmt.Println(auth.GetUserId())
 
 	vars := mux.Vars(r)
 	courseId, err := strconv.Atoi(vars["courseId"])
@@ -491,7 +466,6 @@ func purchaseCourse(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println("err : ", err)
 	}
-	fmt.Println("courseId", courseId, "userId", userId)
 
 	_, err = db.Exec(prchsCour, userId, courseId)
 	if err != nil {
@@ -499,17 +473,14 @@ func purchaseCourse(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	res := response{
-		Message: "Course Purchased successfully",
-	}
 
-	jsonRes, err := json.Marshal(res)
-
+	jsonRes, err := createResp("Course Purchased successfully", "", 0)
 	if err != nil {
 		log.Fatal(err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
 	w.WriteHeader(http.StatusOK)
 	w.Header().Add("Content-Type", "application/json")
 
@@ -529,23 +500,23 @@ func getAllPurchaseCourse(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println("Invalid User")
 		w.WriteHeader(http.StatusBadRequest)
-		return 
+		return
 	}
 	var courses []course
 	for rows.Next() {
-       var c course
-	   err := rows.Scan(&c.Id, &c.Title, &c.Description,
-		   &c.Price, &c.ImageLink, &c.Published)
+		var c course
+		err := rows.Scan(&c.Id, &c.Title, &c.Description,
+			&c.Price, &c.ImageLink, &c.Published)
 
-	   courses = append(courses, c)
-	   if err != nil {
-		   fmt.Println("Json Unmarshal :", err)
-		   log.Fatal(err)
-		   w.WriteHeader(http.StatusBadRequest)
-		   return
-	   }
+		courses = append(courses, c)
+		if err != nil {
+			fmt.Println("Json Unmarshal :", err)
+			log.Fatal(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	}
-	res := map[string][]course{"purchasedCourses":courses}
+	res := map[string][]course{"purchasedCourses": courses}
 	jsonRes, err := json.Marshal(res)
 
 	if err != nil {
@@ -557,4 +528,17 @@ func getAllPurchaseCourse(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "application/json")
 	w.Write(jsonRes)
 
+}
+
+func createResp(msg, token string, courseId int) ([]byte, error) {
+	res := response{
+		Message: msg,
+	}
+	if token != "" {
+		res.Token = token
+	}
+	if courseId != 0 {
+		res.CourseId = courseId
+	}
+	return json.Marshal(res)
 }
