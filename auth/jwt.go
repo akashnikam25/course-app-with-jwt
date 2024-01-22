@@ -14,12 +14,14 @@ type JwtClaim struct {
 }
 
 var (
-	key           = []byte("akash")
+	adminkey           = []byte("adminSecretKey")
+	userKey            = []byte("userSecretKey")
 	jwtvalidClaim *JwtClaim
 	jwtclim       JwtClaim
 )
 
-func GenerateJwt(userId int) (jwtToken string) {
+func GenerateJwt(userId int, role string) (jwtToken string) {
+	var key []byte
 	expiryTime := time.Now().Add(1 * time.Hour)
 	jwtclaim := JwtClaim{
 		UserId: userId,
@@ -28,6 +30,11 @@ func GenerateJwt(userId int) (jwtToken string) {
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwtclaim)
+	if role == "admin"{
+		key = adminkey
+	}else{
+		key = userKey
+	}
 	jwtToken, err := token.SignedString(key)
 	if err != nil {
 		fmt.Println("err :", err)
@@ -37,12 +44,17 @@ func GenerateJwt(userId int) (jwtToken string) {
 	return
 }
 
-func ValidateToken(jwtToken string) error {
+func ValidateToken(jwtToken, role string) error {
 
 	var (
 		ok bool
+		key []byte
 	)
-
+    if role == "admin"{
+		key = adminkey
+	}else{
+		key = userKey
+	}
 	jwtclim = JwtClaim{}
 	token, err := jwt.ParseWithClaims(jwtToken, &jwtclim, func(t *jwt.Token) (interface{}, error) {
 		return key, nil

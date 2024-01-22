@@ -101,7 +101,7 @@ func adminSignup(w http.ResponseWriter, r *http.Request) {
 		row.Scan(&cred.Id)
 	}
 
-	token := auth.GenerateJwt(cred.Id)
+	token := auth.GenerateJwt(cred.Id, admin)
 	jsonRes, err := createResp("Admin created successfully", token, 0)
 
 	if err != nil {
@@ -158,7 +158,7 @@ func adminLogin(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("admin logged in")
 	}
 	fmt.Println("dbCred.Id :", dbCred.Id)
-	token := auth.GenerateJwt(dbCred.Id)
+	token := auth.GenerateJwt(dbCred.Id, admin)
 
 	jsonRes, err := createResp("Logged in successfully", token, 0)
 
@@ -177,7 +177,7 @@ func adminLogin(w http.ResponseWriter, r *http.Request) {
 func createCourse(w http.ResponseWriter, r *http.Request) {
 	token := r.Header.Get("Authorization")
 
-	err := auth.ValidateToken(token)
+	err := auth.ValidateToken(token, admin)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -240,7 +240,7 @@ func createCourse(w http.ResponseWriter, r *http.Request) {
 func updateCourses(w http.ResponseWriter, r *http.Request) {
 	token := r.Header.Get("Authorization")
 
-	err := auth.ValidateToken(token)
+	err := auth.ValidateToken(token, admin)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -295,7 +295,7 @@ func updateCourses(w http.ResponseWriter, r *http.Request) {
 func getAllCourses(w http.ResponseWriter, r *http.Request) {
 	token := r.Header.Get("Authorization")
 
-	err := auth.ValidateToken(token)
+	err := auth.ValidateToken(token, admin)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -378,7 +378,7 @@ func userSignup(w http.ResponseWriter, r *http.Request) {
 		ro.Scan(&cred.Id)
 	}
 
-	token := auth.GenerateJwt(cred.Id)
+	token := auth.GenerateJwt(cred.Id, user)
 
 	jsonRes, err := createResp("User created successfully", token, 0)
 	if err != nil {
@@ -436,7 +436,7 @@ func userLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Println("dbCred.Id", dbCred.Id)
-	token := auth.GenerateJwt(dbCred.Id)
+	token := auth.GenerateJwt(dbCred.Id, user)
 
 	jsonRes, err := createResp("Logged in successfully", token, 0)
 	if err != nil {
@@ -452,7 +452,7 @@ func userLogin(w http.ResponseWriter, r *http.Request) {
 
 func purchaseCourse(w http.ResponseWriter, r *http.Request) {
 	token := r.Header.Get("Authorization")
-	err := auth.ValidateToken(token)
+	err := auth.ValidateToken(token, user)
 	if err != nil {
 		fmt.Println("Invalid User")
 		w.WriteHeader(http.StatusBadRequest)
@@ -490,7 +490,7 @@ func purchaseCourse(w http.ResponseWriter, r *http.Request) {
 
 func getAllPurchaseCourse(w http.ResponseWriter, r *http.Request) {
 	token := r.Header.Get("Authorization")
-	err := auth.ValidateToken(token)
+	err := auth.ValidateToken(token, user)
 	if err != nil {
 		fmt.Println("Invalid User")
 		w.WriteHeader(http.StatusBadRequest)
