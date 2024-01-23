@@ -2,7 +2,6 @@ package auth
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt"
@@ -14,8 +13,8 @@ type JwtClaim struct {
 }
 
 var (
-	adminkey           = []byte("adminSecretKey")
-	userKey            = []byte("userSecretKey")
+	adminkey      = []byte("adminSecretKey")
+	userKey       = []byte("userSecretKey")
 	jwtvalidClaim *JwtClaim
 	jwtclim       JwtClaim
 )
@@ -30,29 +29,26 @@ func GenerateJwt(userId int, role string) (jwtToken string) {
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwtclaim)
-	if role == "admin"{
+	if role == "admin" {
 		key = adminkey
-	}else{
+	} else {
 		key = userKey
 	}
 	jwtToken, err := token.SignedString(key)
 	if err != nil {
-		fmt.Println("err :", err)
+		return ""
 	}
-
-	fmt.Println("jwtToken :", jwtToken)
 	return
 }
 
-func ValidateToken(jwtToken, role string) error {
-
+func ValidateToken(jwtToken, role string) (int, error) {
 	var (
-		ok bool
+		ok  bool
 		key []byte
 	)
-    if role == "admin"{
+	if role == "admin" {
 		key = adminkey
-	}else{
+	} else {
 		key = userKey
 	}
 	jwtclim = JwtClaim{}
@@ -61,22 +57,16 @@ func ValidateToken(jwtToken, role string) error {
 	})
 
 	if err != nil {
-		fmt.Println("Err is :", err)
-		return err
+		return 0, err
 	}
 
 	if jwtvalidClaim, ok = token.Claims.(*JwtClaim); !ok {
-		return errors.New("Parsing error")
+		return 0, errors.New("Parsing error")
 	}
 
 	if jwtvalidClaim.ExpiresAt < time.Now().Unix() {
-		return errors.New("token expired")
+		return 0, errors.New("token expired")
 	}
 
-	return nil
-
-}
-
-func GetUserId() int {
-	return jwtclim.UserId
+	return jwtvalidClaim.UserId, nil
 }

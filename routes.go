@@ -4,7 +4,6 @@ import (
 	"course-app-with-jwt/auth"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -60,8 +59,7 @@ func adminSignup(w http.ResponseWriter, r *http.Request) {
 	bodyByte, err := io.ReadAll(pasrseBody)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -69,20 +67,18 @@ func adminSignup(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal([]byte(bodyByte), &cred)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	_, err = db.Exec(insertQuery, cred.UserName, cred.PassWord, admin)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	row, err := db.Query(getUsrAdminId, cred.UserName, cred.PassWord)
 	if err != nil {
-        log.Fatal(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	for row.Next() {
@@ -93,8 +89,7 @@ func adminSignup(w http.ResponseWriter, r *http.Request) {
 	jsonRes, err := createResp("Admin created successfully", token, 0)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -112,41 +107,39 @@ func adminLogin(w http.ResponseWriter, r *http.Request) {
 	bodyByte, err := io.ReadAll(pasrseBody)
 
 	if err != nil {
-	    log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
-	
 
 	cred := credentials{}
 	err = json.Unmarshal([]byte(bodyByte), &cred)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	row := db.QueryRow(selectQuery, cred.UserName, cred.PassWord)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 
 	dbCred := credentials{}
 	err = row.Scan(&dbCred.Id, &dbCred.Role)
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if dbCred.Role != admin {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 	token := auth.GenerateJwt(dbCred.Id, admin)
 	jsonRes, err := createResp("Logged in successfully", token, 0)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -157,20 +150,11 @@ func adminLogin(w http.ResponseWriter, r *http.Request) {
 
 // createCourse creates a new course.
 func createCourse(w http.ResponseWriter, r *http.Request) {
-	token := r.Header.Get("Authorization")
-
-	err := auth.ValidateToken(token, admin)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
 	pasrseBody := r.Body
 	bodyByte, err := io.ReadAll(pasrseBody)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -178,15 +162,13 @@ func createCourse(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal([]byte(bodyByte), &newCourse)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	_, err = db.Exec(insertCourse, newCourse.Title, newCourse.Description, newCourse.Price, newCourse.ImageLink, newCourse.Published)
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	row := db.QueryRow(selectCourseId, newCourse.Title)
@@ -194,16 +176,14 @@ func createCourse(w http.ResponseWriter, r *http.Request) {
 	var crse course
 	err = row.Scan(&crse.Id)
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	jsonRes, err := createResp("Course created successfully", "", crse.Id)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -216,13 +196,7 @@ func createCourse(w http.ResponseWriter, r *http.Request) {
 // It expects a course ID as a URL parameter and the updated course details in the request body.
 // Responds with a success status code (204 No Content) if the update is successful.
 func updateCourses(w http.ResponseWriter, r *http.Request) {
-	token := r.Header.Get("Authorization")
 
-	err := auth.ValidateToken(token, admin)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
 	vars := mux.Vars(r)
 	courseId := vars["courseId"]
 
@@ -230,8 +204,7 @@ func updateCourses(w http.ResponseWriter, r *http.Request) {
 	bodyByte, err := io.ReadAll(pasrseBody)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -239,8 +212,7 @@ func updateCourses(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal([]byte(bodyByte), &newCourse)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -248,16 +220,14 @@ func updateCourses(w http.ResponseWriter, r *http.Request) {
 		newCourse.Price, newCourse.ImageLink, newCourse.Published, courseId)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	jsonRes, err := createResp("Course updated successfully", "", 0)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -267,19 +237,13 @@ func updateCourses(w http.ResponseWriter, r *http.Request) {
 
 // getAllCourses will return all the courses
 func getAllCourses(w http.ResponseWriter, r *http.Request) {
-	token := r.Header.Get("Authorization")
-
-	err := auth.ValidateToken(token, admin)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
 	var courses []course
 
 	rows, err := db.Query(getCourses)
 
 	if err != nil {
-		log.Fatal(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	defer rows.Close()
 	for rows.Next() {
@@ -289,8 +253,7 @@ func getAllCourses(w http.ResponseWriter, r *http.Request) {
 
 		courses = append(courses, c)
 		if err != nil {
-			log.Fatal(err)
-			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -298,8 +261,7 @@ func getAllCourses(w http.ResponseWriter, r *http.Request) {
 	jsonRes, err := json.Marshal(courses)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -315,8 +277,7 @@ func userSignup(w http.ResponseWriter, r *http.Request) {
 	bodyByte, err := io.ReadAll(pasrseBody)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -324,15 +285,13 @@ func userSignup(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal([]byte(bodyByte), &cred)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	_, err = db.Exec(insertQuery, cred.UserName, cred.PassWord, user)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -345,8 +304,7 @@ func userSignup(w http.ResponseWriter, r *http.Request) {
 
 	jsonRes, err := createResp("User created successfully", token, 0)
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -364,7 +322,7 @@ func userLogin(w http.ResponseWriter, r *http.Request) {
 	bodyByte, err := io.ReadAll(pasrseBody)
 
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -372,30 +330,31 @@ func userLogin(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal([]byte(bodyByte), &cred)
 
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	row := db.QueryRow(selectQuery, cred.UserName, cred.PassWord)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
 	dbCred := credentials{}
 	err = row.Scan(&dbCred.Id, &dbCred.Role)
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	if dbCred.Role != user {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 	token := auth.GenerateJwt(dbCred.Id, user)
 
 	jsonRes, err := createResp("Logged in successfully", token, 0)
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
@@ -405,31 +364,29 @@ func userLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func purchaseCourse(w http.ResponseWriter, r *http.Request) {
-	token := r.Header.Get("Authorization")
-	err := auth.ValidateToken(token, user)
+	userId, err := strconv.Atoi(r.Header.Get("userId"))
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	userId := auth.GetUserId()
 
 	vars := mux.Vars(r)
 	courseId, err := strconv.Atoi(vars["courseId"])
 
 	if err != nil {
-		log.Fatal(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	_, err = db.Exec(prchsCour, userId, courseId)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	jsonRes, err := createResp("Course Purchased successfully", "", 0)
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -441,16 +398,15 @@ func purchaseCourse(w http.ResponseWriter, r *http.Request) {
 }
 
 func getAllPurchaseCourse(w http.ResponseWriter, r *http.Request) {
-	token := r.Header.Get("Authorization")
-	err := auth.ValidateToken(token, user)
+	userId, err := strconv.Atoi(r.Header.Get("userId"))
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
-	rows, err := db.Query(getPrchscours, auth.GetUserId())
+	rows, err := db.Query(getPrchscours, userId)
+
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	var courses []course
@@ -461,8 +417,7 @@ func getAllPurchaseCourse(w http.ResponseWriter, r *http.Request) {
 
 		courses = append(courses, c)
 		if err != nil {
-			log.Fatal(err)
-			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -470,8 +425,7 @@ func getAllPurchaseCourse(w http.ResponseWriter, r *http.Request) {
 	jsonRes, err := json.Marshal(res)
 
 	if err != nil {
-		log.Fatal(err)
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)

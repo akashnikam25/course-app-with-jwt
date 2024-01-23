@@ -1,12 +1,15 @@
 package main
 
 import (
+	"course-app-with-jwt/auth"
 	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -36,6 +39,29 @@ func initDB() {
 
 }
 
+// validAuthuser will validate jwtToken
+func validateAuthUser(h http.Handler) http.Handler {
+	fmt.Println("Inside user ValidateAuthUser")
+	var role string
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		token := r.Header.Get("Authorization")
+		if strings.Contains(r.URL.Path, admin) {
+			role = admin
+		} else {
+			role = user
+		}
+		userId, err := auth.ValidateToken(token, role)
+		if err != nil {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		r.Header.Add("userId", strconv.Itoa(userId))
+		h.ServeHTTP(w, r)
+	})
+}
+
 func main() {
 
 	defer db.Close()
@@ -44,21 +70,28 @@ func main() {
 	interruptChan := make(chan os.Signal, 1)
 	signal.Notify(interruptChan, os.Interrupt, syscall.SIGTERM)
 
-	router := mux.NewRouter()
-	router.HandleFunc("/admin/signup", adminSignup).Methods(http.MethodPost)
-	router.HandleFunc("/admin/login", adminLogin).Methods(http.MethodPost)
-	router.HandleFunc("/admin/course", createCourse).Methods(http.MethodPost)
-	router.HandleFunc("/admin/courses/{courseId}", updateCourses).Methods(http.MethodPut)
-	router.HandleFunc("/admin/courses", getAllCourses).Methods(http.MethodGet)
-	router.HandleFunc("/user/signup", userSignup).Methods(http.MethodPost)
-	router.HandleFunc("/user/login", userLogin).Methods(http.MethodPost)
-	router.HandleFunc("/user/courses", getAllCourses).Methods(http.MethodGet)
-	router.HandleFunc("/user/courses/{courseId}", purchaseCourse).Methods(http.MethodPost)
-	router.HandleFunc("/user/purchasedCourses",getAllPurchaseCourse).Methods(http.MethodGet)
-	// Start the server
+	mainRouter := mux.NewRouter()
 
+	mainRouter.HandleFunc("/admin/signup", adminSignup).Methods(http.MethodPost)
+	mainRouter.HandleFunc("/admin/login", adminLogin).Methods(http.MethodPost)
+	mainRouter.HandleFunc("/user/signup", userSignup).Methods(http.MethodPost)
+	mainRouter.HandleFunc("/user/login", userLogin).Methods(http.MethodPost)
+
+	adminRouter := mainRouter.PathPrefix("/admin").Subrouter()
+	adminRouter.HandleFunc("/courses", createCourse).Methods(http.MethodPost)
+	adminRouter.HandleFunc("/courses/{courseId}", updateCourses).Methods(http.MethodPut)
+	adminRouter.HandleFunc("/courses", getAllCourses).Methods(http.MethodGet)
+	adminRouter.Use(validateAuthUser)
+
+	userRouter := mainRouter.PathPrefix("/user").Subrouter()
+	userRouter.HandleFunc("/courses", getAllCourses).Methods(http.MethodGet)
+	userRouter.HandleFunc("/courses/{courseId}", purchaseCourse).Methods(http.MethodPost)
+	userRouter.HandleFunc("/purchasedCourses", getAllPurchaseCourse).Methods(http.MethodGet)
+	userRouter.Use(validateAuthUser)
+
+	// Start the server
 	fmt.Printf("Server is listening on port %s...\n", ":8000")
-	go startServer(router)
+	go startServer(mainRouter)
 
 	// Wait for an interrupt signal
 	<-interruptChan
@@ -67,11 +100,10 @@ func main() {
 
 	fmt.Println("Server is shutting down.")
 	os.Exit(0)
-
 }
 
-func startServer(router *mux.Router){
-	if err := http.ListenAndServe(":8000", router);err != nil{
-       fmt.Println("err :	",err)
+func startServer(mainRouter *mux.Router) {
+	if err := http.ListenAndServe(":8000", mainRouter); err != nil {
+		fmt.Println("err :	", err)
 	}
 }
