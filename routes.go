@@ -70,22 +70,23 @@ func adminSignup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+
+	userId := getUserId(cred)
+
+	if userId != 0 {
+		http.Error(w, "User already exists. Please log in", http.StatusConflict)
+		return
+	}
+
 	_, err = db.Exec(insertQuery, cred.UserName, cred.PassWord, admin)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	row, err := db.Query(getUsrAdminId, cred.UserName, cred.PassWord)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	for row.Next() {
-		row.Scan(&cred.Id)
-	}
+	userId = getUserId(cred)
 
-	token := auth.GenerateJwt(cred.Id, admin)
+	token := auth.GenerateJwt(userId, admin)
 	jsonRes, err := createResp("Admin created successfully", token, 0)
 
 	if err != nil {
@@ -288,6 +289,13 @@ func userSignup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	userId := getUserId(cred)
+
+	if userId != 0 {
+		http.Error(w, "User already exists. Please log in", http.StatusConflict)
+		return
+	}
+
 	_, err = db.Exec(insertQuery, cred.UserName, cred.PassWord, user)
 
 	if err != nil {
@@ -295,12 +303,7 @@ func userSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ro, _ := db.Query(getUsrAdminId, cred.UserName, cred.PassWord)
-	for ro.Next() {
-		ro.Scan(&cred.Id)
-	}
-
-	token := auth.GenerateJwt(cred.Id, user)
+	token := auth.GenerateJwt(userId, user)
 
 	jsonRes, err := createResp("User created successfully", token, 0)
 	if err != nil {
@@ -363,6 +366,7 @@ func userLogin(w http.ResponseWriter, r *http.Request) {
 	w.Write(jsonRes)
 }
 
+// purchaeCourse will show only purchased courses from users
 func purchaseCourse(w http.ResponseWriter, r *http.Request) {
 	userId, err := strconv.Atoi(r.Header.Get("userId"))
 	if err != nil {
@@ -445,4 +449,16 @@ func createResp(msg, token string, courseId int) ([]byte, error) {
 		res.CourseId = courseId
 	}
 	return json.Marshal(res)
+}
+
+// getUserId will fetch the userid from db
+func getUserId(cred credentials) int {
+	row, err := db.Query(getUsrAdminId, cred.UserName, cred.PassWord)
+	if err != nil {
+		return 0
+	}
+	for row.Next() {
+		row.Scan(&cred.Id)
+	}
+	return cred.Id
 }
