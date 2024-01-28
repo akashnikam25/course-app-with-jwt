@@ -1,9 +1,19 @@
 ## Create a course selling website
 
-### Description
-Functionally the same as 03-course-app-medium. Routes are the same as well.
-Rather than storing data in files, store them in MongoDB. 
-We will be covering this in the extra class next week but would be good for you to run ahead.
+To run this application, build and run the Go binary:
+```
+go build
+./course-app-with-jwt
+```
+
+Replace your mysql string "root:akash@tcp(127.0.0.1:3306)/courseapp" in main file.
+Use the following routes; we have a running server on port 8000
+```
+http://localhost:8000/admin/signup
+
+{"username":"user","password":"pass"}
+```
+
 
 ## Routes
 ### Admin Routes:

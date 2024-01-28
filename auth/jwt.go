@@ -19,6 +19,7 @@ var (
 	jwtclim       JwtClaim
 )
 
+// GenerateJwt will generate a token using a secret key and return the token.
 func GenerateJwt(userId int, role string) (jwtToken string) {
 	var key []byte
 	expiryTime := time.Now().Add(1 * time.Hour)
@@ -41,6 +42,7 @@ func GenerateJwt(userId int, role string) (jwtToken string) {
 	return
 }
 
+// ValidateToken will validate the incoming token with the generated token."
 func ValidateToken(jwtToken, role string) (int, error) {
 	var (
 		ok  bool
